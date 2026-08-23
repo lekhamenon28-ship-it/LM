@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.py[cod]
+.gradio/
+
+# Dynatrace exports may contain private infrastructure telemetry.
+dynatrace_*.csv
+
+# Local configuration and secrets.
+.env
+.env.*
+*.pem
+*.key
+
