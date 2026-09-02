@@ -1,0 +1,46 @@
+services:
+  gateway:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./dist:/usr/share/nginx/html:ro
+    depends_on:
+      - member-service
+      - claims-service
+      - provider-service
+      - care-service
+    restart: unless-stopped
+
+  member-service:
+    build:
+      context: ./services
+      dockerfile: member/Dockerfile
+    environment:
+      SERVICE_NAME: member-service
+    restart: unless-stopped
+
+  claims-service:
+    build:
+      context: ./services
+      dockerfile: claims/Dockerfile
+    environment:
+      SERVICE_NAME: claims-service
+    restart: unless-stopped
+
+  provider-service:
+    build:
+      context: ./services
+      dockerfile: providers/Dockerfile
+    environment:
+      SERVICE_NAME: provider-service
+    restart: unless-stopped
+
+  care-service:
+    build:
+      context: ./services
+      dockerfile: care/Dockerfile
+    environment:
+      SERVICE_NAME: care-service
+    restart: unless-stopped

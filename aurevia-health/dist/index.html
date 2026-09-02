@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Aurevia Health member portal demo">
+  <title>Aurevia Health | Member Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="interactions.css">
+</head>
+<body>
+  <header>
+    <button class="brand brand-button" data-view="overview" aria-label="Go to overview"><span class="brandmark">A</span><span>Aurevia <b>Health</b></span></button>
+    <nav aria-label="Main navigation"><button class="nav active" data-view="overview">Overview</button><button class="nav" data-view="claims">Claims</button><button class="nav" data-view="care">My care</button><button class="nav" data-view="find-care">Find care</button></nav>
+    <div class="head-actions"><button class="icon-btn" id="notifications-button" aria-label="Notifications">●<span class="dot"></span></button><button class="profile" id="profile-button" aria-expanded="false"><span id="avatar">MT</span><span class="profile-text"><b id="short-name">Maya</b><small>Member</small></span><span>⌄</span></button><div class="menu" id="account-menu"><button data-action="profile">Profile & preferences</button><button data-action="support">Help & support</button><button data-action="signout">Sign out</button></div></div>
+  </header>
+
+  <main>
+    <section class="hello"><div><p class="eyebrow" id="today">SUNDAY, AUGUST 16</p><h1><span id="greeting">Good morning</span>, <span id="first-name">Maya</span>.</h1><p>Here’s what’s happening with your health and coverage.</p></div><button class="primary" id="id-card">▣ &nbsp; View ID card</button></section>
+    <section class="alert"><span class="alert-icon">✓</span><div><b>Your preventive care is on track</b><p>You’ve completed 4 of 5 recommended activities this year.</p></div><button data-view="care" class="text-btn">View care plan →</button></section>
+
+    <div class="grid">
+      <section class="card coverage"><div class="card-head"><div><span class="label">MY COVERAGE</span><h2 id="plan">Loading plan…</h2></div><span class="pill">Active</span></div><div class="member-row"><span>Member ID</span><b id="member-id">—</b></div><div class="meter-block"><div><span>Deductible</span><b id="deductible-label">—</b></div><div class="meter"><i id="deductible-bar"></i></div></div><div class="meter-block"><div><span>Out-of-pocket max</span><b id="oop-label">—</b></div><div class="meter pale"><i id="oop-bar"></i></div></div><button class="link">Coverage details →</button></section>
+
+      <section class="card score"><span class="label">HEALTH SNAPSHOT</span><div class="score-body"><div class="ring"><span id="score">—</span><small>out of 100</small></div><div><h2>You’re doing great</h2><p>Your score improved by 6 points this month.</p><button data-view="care" class="link">View insights →</button></div></div></section>
+
+      <section class="card span-2"><div class="card-head"><div><span class="label">NEXT BEST ACTIONS</span><h2>Small steps, meaningful progress</h2></div><button data-view="care" class="link">View all</button></div><div id="tasks" class="tasks"><div class="skeleton"></div></div></section>
+
+      <section class="card span-2"><div class="card-head"><div><span class="label">RECENT CLAIMS</span><h2>Your latest activity</h2></div><button data-view="claims" class="link">All claims</button></div><div class="table-wrap"><table><thead><tr><th>Provider & service</th><th>Date</th><th>Status</th><th>Billed</th><th>You pay</th></tr></thead><tbody id="claims"><tr><td colspan="5">Loading claims…</td></tr></tbody></table></div></section>
+
+      <section class="card span-2 search-card"><div><span class="label">FIND CARE</span><h2>Care that fits your life</h2><p>Search in-network doctors, clinics, and virtual care.</p></div><form id="provider-search"><label><span aria-hidden="true">⌕</span><input aria-label="Search providers" placeholder="Doctor, specialty, or condition"></label><button class="primary">Search</button><button class="secondary" id="clear-search" type="button" hidden>Clear</button></form><div id="providers" class="providers" aria-live="polite"></div></section>
+    </div>
+  </main>
+
+  <dialog id="modal"><button class="close" aria-label="Close">×</button><div class="digital-card"><span class="brand small"><span class="brandmark">A</span> Aurevia Health</span><small>MEMBER</small><h2 id="card-name">Maya Thompson</h2><p id="card-plan">Aurevia Choice PPO</p><div><span>Member ID</span><b id="card-id">AH-4829017</b></div></div><p class="modal-note">Sample digital member card — not valid for care.</p></dialog>
+  <dialog id="detail-modal"><button class="close" aria-label="Close">×</button><div id="detail-content" class="detail-content"></div></dialog>
+  <div id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body></html>

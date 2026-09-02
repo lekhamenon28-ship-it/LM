@@ -1,0 +1,30 @@
+.brand-button { border: 0; background: none; padding: 0; }
+.head-actions { position: relative; }
+.menu { display: none; position: absolute; right: 0; top: 52px; width: 210px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 7px; box-shadow: 0 14px 40px #173b3b25; }
+.menu.show { display: grid; }
+.menu button { border: 0; background: none; text-align: left; padding: 11px; border-radius: 8px; color: var(--ink); }
+.menu button:hover { background: var(--mint); color: var(--teal); }
+.task { background: #fff; text-align: left; color: var(--ink); transition: .2s; }
+.task small { display: block; color: var(--muted); font-size: 13px; margin: 5px 0; }
+.task:hover, .task:focus-visible, .provider:hover, .provider:focus-visible { border-color: var(--teal); box-shadow: 0 5px 18px #087f7818; transform: translateY(-1px); }
+tbody tr { cursor: pointer; }
+tbody tr:hover, tbody tr:focus { background: #f3faf8; outline: none; }
+.provider { text-align: left; color: var(--ink); transition: .2s; }
+.provider span { display: block; color: var(--teal); font-size: 12px; font-weight: 700; margin-top: 10px; }
+.empty { color: var(--muted); grid-column: 1 / -1; }
+.detail-content { clear: both; padding: 4px; }
+.detail-content h2 { margin: 8px 0 16px; }
+.detail-body { color: var(--muted); line-height: 1.55; }
+.detail-body b, .detail-body dd { color: var(--ink); }
+.detail-body dl { margin: 10px 0; }
+.detail-body dl div { display: flex; justify-content: space-between; gap: 24px; border-top: 1px solid var(--line); padding: 11px 0; }
+.detail-body dt, .detail-body dd { margin: 0; }
+.detail-content > .primary { width: 100%; margin-top: 12px; }
+.notice { border-top: 1px solid var(--line); padding: 13px 0; }
+.notice p { margin: 4px 0 0; }
+.secondary { border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--teal); font-weight: 700; padding: 12px 16px; }
+.secondary:hover { border-color: var(--teal); background: var(--mint); }
+button:focus-visible, input:focus-visible, [role="button"]:focus-visible { outline: 3px solid #f6b84a; outline-offset: 2px; }
+dialog[open] { animation: dialog-in .18s ease-out; }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
