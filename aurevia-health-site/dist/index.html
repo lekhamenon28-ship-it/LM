@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Aurevia Health helps individuals and families explore Medicare, dental, vision, and health plan options.">
+  <title>Aurevia Health | Feel supported at every step</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <div class="utility-bar"><div class="shell"><span>Individuals & families</span><nav aria-label="Utility navigation"><a href="#providers">Providers</a><a href="#resources">Employers</a><a href="#support">Support</a></nav></div></div>
+  <header>
+    <div class="shell header-inner">
+      <a class="brand" href="#top" aria-label="Aurevia Health home"><span class="brand-mark">A</span><span>Aurevia <b>Health</b></span></a>
+      <button class="menu-toggle" aria-expanded="false" aria-controls="primary-nav"><span></span><span></span><span></span><span class="sr-only">Menu</span></button>
+      <nav id="primary-nav" class="primary-nav" aria-label="Primary navigation">
+        <button class="nav-trigger" data-menu="plans">Insurance plans <span>⌄</span></button>
+        <button class="nav-trigger" data-menu="medicare">Medicare <span>⌄</span></button>
+        <a href="#wellness">Health & wellness</a>
+        <a href="#resources">Resources</a>
+      </nav>
+      <div class="header-actions"><button class="search-button" aria-label="Search">⌕</button><button class="outline" id="signin-button">Sign in</button></div>
+    </div>
+    <div class="mega-menu" id="plans-menu"><div class="shell"><div><span class="eyebrow">EXPLORE COVERAGE</span><h3>Plans for every chapter</h3><p>Compare benefits and find coverage that fits your life and budget.</p></div><div class="menu-links"><a href="#plans">Medical plans <span>→</span></a><a href="#plans">Dental plans <span>→</span></a><a href="#plans">Vision plans <span>→</span></a><a href="#plans">Medicaid plans <span>→</span></a></div></div></div>
+    <div class="mega-menu" id="medicare-menu"><div class="shell"><div><span class="eyebrow">MEDICARE</span><h3>Make Medicare feel simpler</h3><p>Learn the basics, compare options, and get personal guidance.</p></div><div class="menu-links"><a href="#medicare">Medicare Advantage <span>→</span></a><a href="#medicare">Prescription drug plans <span>→</span></a><a href="#medicare">Medicare Supplement <span>→</span></a><a href="#medicare">Medicare resources <span>→</span></a></div></div></div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="shell hero-grid">
+        <div class="hero-copy"><span class="eyebrow">HEALTH COVERAGE, MADE HUMAN</span><h1>More support for your whole health.</h1><p>Explore plans, benefits, and helpful guidance designed around the way you live.</p><div class="hero-actions"><a class="button primary" href="#plans">Explore plans</a><button class="button ghost" data-scroll="providers">Find a doctor</button></div><div class="trust-row"><span>✓ No-cost plan guidance</span><span>✓ Nationwide provider options</span></div></div>
+        <div class="hero-art" aria-label="A family enjoying time together outdoors" role="img"><div class="sun"></div><div class="land land-one"></div><div class="land land-two"></div><div class="family"><span class="person tall"></span><span class="person small"></span><span class="person medium"></span></div><div class="float-card"><span class="float-icon">♡</span><div><b>Care that connects</b><small>Plans built around you</small></div></div></div>
+      </div>
+    </section>
+
+    <section class="quick-actions"><div class="shell quick-grid"><button data-scroll="plans"><span>▤</span><div><b>Shop for plans</b><small>Compare coverage options</small></div><i>→</i></button><button data-scroll="providers"><span>⌖</span><div><b>Find care</b><small>Doctors, pharmacies & more</small></div><i>→</i></button><button id="id-card-action"><span>▣</span><div><b>View ID card</b><small>Access member information</small></div><i>→</i></button><button data-scroll="support"><span>?</span><div><b>Get support</b><small>We’re here to help</small></div><i>→</i></button></div></section>
+
+    <section class="section" id="plans"><div class="shell"><div class="section-heading"><div><span class="eyebrow">FIND YOUR FIT</span><h2>Coverage for what matters most</h2></div><p>Choose a path to see plan options and practical guidance for your needs.</p></div><div class="plan-grid">
+      <article class="plan-card featured"><div class="plan-icon">✦</div><span class="tag">Most popular</span><h3>Medicare</h3><p>Explore all-in-one coverage with benefits that can go beyond Original Medicare.</p><button data-plan="Medicare">Explore Medicare <span>→</span></button></article>
+      <article class="plan-card"><div class="plan-icon">♡</div><h3>Individual & family</h3><p>Flexible medical coverage designed for changing lives and everyday care.</p><button data-plan="Individual and family">View health plans <span>→</span></button></article>
+      <article class="plan-card"><div class="plan-icon">⌣</div><h3>Dental & vision</h3><p>Affordable options for routine visits, eyewear, preventive care, and more.</p><button data-plan="Dental and vision">Explore benefits <span>→</span></button></article>
+    </div></div></section>
+
+    <section class="finder" id="providers"><div class="shell finder-grid"><div><span class="eyebrow light">FIND CARE</span><h2>The right care, closer to home</h2><p>Search a national network of doctors, specialists, pharmacies, and care locations.</p><form id="care-form"><label><span class="sr-only">Search by doctor, specialty, or facility</span><input id="care-query" placeholder="Doctor, specialty, or facility"></label><label><span class="sr-only">ZIP code</span><input id="zip" inputmode="numeric" maxlength="5" placeholder="ZIP code"></label><button class="button coral">Search care</button></form><p class="form-note">No sign-in needed to browse the demo directory.</p></div><div class="finder-results" id="finder-results"><div class="map-dot d1"></div><div class="map-dot d2"></div><div class="map-dot d3"></div><div class="map-card"><span>⌖</span><div><b>12,000+ care locations</b><small>Across our sample network</small></div></div></div></div></section>
+
+    <section class="section wellness" id="wellness"><div class="shell wellness-grid"><div class="wellness-art"><div class="leaf l1"></div><div class="leaf l2"></div><div class="leaf l3"></div><span>82</span><small>well-being score</small></div><div><span class="eyebrow">YOUR WHOLE HEALTH</span><h2>Small steps can make a meaningful difference</h2><p>Your plan can be more than coverage. Discover tools, rewards, and personalized resources that support your physical, emotional, and financial well-being.</p><ul><li>Personal wellness goals</li><li>Preventive care reminders</li><li>Healthy activity rewards</li></ul><button class="text-link" id="wellness-button">Explore wellness resources →</button></div></div></section>
+
+    <section class="section resources" id="resources"><div class="shell"><div class="section-heading"><div><span class="eyebrow">HELPFUL RESOURCES</span><h2>Answers for the road ahead</h2></div></div><div class="resource-grid"><article><span>01</span><h3>New to Medicare?</h3><p>Understand the parts, costs, and timelines in plain language.</p><button data-resource="Medicare basics">Start with the basics →</button></article><article><span>02</span><h3>Planning for care</h3><p>Prepare for visits and make the most of your health benefits.</p><button data-resource="Care planning">View care guides →</button></article><article><span>03</span><h3>Managing prescriptions</h3><p>Learn about drug coverage and ways to manage medication costs.</p><button data-resource="Prescription support">Explore pharmacy help →</button></article></div></div></section>
+
+    <section class="support" id="support"><div class="shell support-inner"><div><span class="eyebrow light">REAL PEOPLE, REAL SUPPORT</span><h2>Need help choosing a plan?</h2><p>Talk with a licensed Aurevia guide who can help you understand your options.</p></div><div><a class="button white" href="tel:18005550198">Call 1-800-555-0198</a><small>Monday–Friday, 8 a.m.–8 p.m.</small></div></div></section>
+  </main>
+
+  <footer><div class="shell footer-grid"><div><a class="brand footer-brand" href="#top"><span class="brand-mark">A</span><span>Aurevia <b>Health</b></span></a><p>Helping people feel supported on their health journey.</p></div><div><b>Explore</b><a href="#plans">Insurance plans</a><a href="#medicare">Medicare</a><a href="#providers">Find care</a></div><div><b>Members</b><button data-footer-action="signin">Sign in</button><button data-footer-action="card">ID cards</button><a href="#resources">Resources</a></div><div><b>Company</b><a href="#support">Contact us</a><a href="#">Accessibility</a><a href="#">Privacy</a></div></div><div class="shell legal"><span>© 2026 Aurevia Health. Fictional demonstration website.</span><span>Not affiliated with Humana or any insurer.</span></div></footer>
+
+  <dialog id="modal"><button class="modal-close" aria-label="Close">×</button><div id="modal-content"></div></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>

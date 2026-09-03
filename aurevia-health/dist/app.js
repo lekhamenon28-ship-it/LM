@@ -29,6 +29,17 @@ const openDetail = (title, body, action) => {
   $('#detail-content').innerHTML = `<span class="label">AUREVIA HEALTH</span><h2>${title}</h2><div class="detail-body">${body}</div>${action ? `<button class="primary detail-action">${action}</button>` : ''}`;
   $('#detail-modal').showModal();
 };
+const openCareTask = task => {
+  if (task.title === 'Schedule annual eye exam') {
+    openDetail('Schedule your eye exam', `<p>${task.detail}. Choose a convenient in-network appointment time.</p><div class="choice-list"><button class="choice" data-choice="Today, 3:30 PM"><span><b>Today, 3:30 PM</b><small>Willow Creek Optometry · 1.8 mi</small></span><span>›</span></button><button class="choice" data-choice="Tomorrow, 10:00 AM"><span><b>Tomorrow, 10:00 AM</b><small>Northside Vision Center · 2.6 mi</small></span><span>›</span></button><button class="choice" data-choice="Friday, 4:15 PM"><span><b>Friday, 4:15 PM</b><small>Virtual vision consultation</small></span><span>›</span></button></div>`, null);
+    return;
+  }
+  if (task.title === 'Review lab results') {
+    openDetail('Your lab results', `<p>Results from your preventive lab panel on Jul 27 are ready to review.</p><div class="result-list"><div><span><b>Total cholesterol</b><small>Recommended range: under 200 mg/dL</small></span><strong>172 <small>mg/dL</small></strong></div><div><span><b>Blood glucose</b><small>Recommended range: 70–99 mg/dL</small></span><strong>91 <small>mg/dL</small></strong></div><div><span><b>Vitamin D</b><small>Recommended range: 30–100 ng/mL</small></span><strong>34 <small>ng/mL</small></strong></div></div><p class="supporting-note">These results are for information only. Your care team can help interpret what they mean for you.</p>`, 'Message my care team');
+    return;
+  }
+  openDetail(task.title, `<p>${task.detail}</p><p><b>Status:</b> ${task.complete ? 'Completed' : 'Ready for you'}</p>`, task.complete ? 'View summary' : 'Get started');
+};
 
 async function load(){
   try {
@@ -42,7 +53,7 @@ async function load(){
     $('#score').textContent=care.healthScore;
     $('#tasks').innerHTML=care.tasks.map(t=>`<button class="task ${t.complete?'done':''}" data-task-id="${t.id}"><span class="task-check">${t.complete?'✓':''}</span><span><b>${t.title}</b><small>${t.detail}</small><em>${t.due}</em></span></button>`).join('');
     $('#claims').innerHTML=claims.claims.map(c=>`<tr tabindex="0" role="button" data-claim-id="${c.id}"><td><b>${c.provider}</b><small>${c.service} · ${c.id}</small></td><td>${c.date}</td><td><span class="status ${c.status==='In review'?'review':''}">${c.status}</span></td><td>${money(c.billed)}</td><td><b>${money(c.youPay)}</b></td></tr>`).join('');
-    $('#tasks').onclick=e=>{const card=e.target.closest('[data-task-id]');if(!card)return;const task=care.tasks.find(t=>String(t.id)===card.dataset.taskId);openDetail(task.title,`<p>${task.detail}</p><p><b>Status:</b> ${task.complete?'Completed':'Ready for you'}</p>`,task.complete?'View summary':'Get started');};
+    $('#tasks').onclick=e=>{const card=e.target.closest('[data-task-id]');if(!card)return;const task=care.tasks.find(t=>String(t.id)===card.dataset.taskId);openCareTask(task);};
     const showClaim=e=>{const row=e.target.closest('[data-claim-id]');if(!row)return;const c=claims.claims.find(item=>item.id===row.dataset.claimId);openDetail('Claim details',`<dl><div><dt>Claim</dt><dd>${c.id}</dd></div><div><dt>Provider</dt><dd>${c.provider}</dd></div><div><dt>Service</dt><dd>${c.service}</dd></div><div><dt>Billed</dt><dd>${money(c.billed)}</dd></div><div><dt>You pay</dt><dd>${money(c.youPay)}</dd></div></dl>`,'Download explanation of benefits');};
     $('#claims').onclick=showClaim; $('#claims').onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-claim-id]')){e.preventDefault();showClaim(e);}};
   } catch { toast('Some health data is temporarily unavailable.'); }
@@ -61,7 +72,7 @@ $('#notifications-button').onclick=()=>{openDetail('Notifications','<div class="
 $('#profile-button').onclick=e=>{e.stopPropagation();const menu=$('#account-menu');const open=menu.classList.toggle('show');e.currentTarget.setAttribute('aria-expanded',open);};
 document.addEventListener('click',()=>{$('#account-menu').classList.remove('show');$('#profile-button').setAttribute('aria-expanded','false');});
 $('#account-menu').onclick=e=>{e.stopPropagation();const action=e.target.dataset.action;if(!action)return;$('#account-menu').classList.remove('show');if(action==='profile')openDetail('Profile & preferences','<p>Manage contact details, communication choices, and accessibility settings.</p>','Manage profile');else if(action==='support')openDetail('How can we help?','<p>Member support is available Monday–Friday, 8 AM–8 PM.</p><p><b>1-800-555-0198</b></p>','Start secure chat');else toast('This is a demo—no account session was changed.');};
-$('#detail-modal').addEventListener('click',e=>{if(e.target.matches('.detail-action')){toast(`${e.target.textContent} selected`);$('#detail-modal').close();}});
+$('#detail-modal').addEventListener('click',e=>{const choice=e.target.closest('[data-choice]');if(choice){toast(`Appointment request started for ${choice.dataset.choice}`);$('#detail-modal').close();return;}if(e.target.matches('.detail-action')){toast(`${e.target.textContent} selected`);$('#detail-modal').close();}});
 $('#provider-search').onsubmit=async e=>{e.preventDefault();const query=e.currentTarget.querySelector('input').value.trim().toLowerCase();const area=$('#providers');$('#clear-search').hidden=!query;area.classList.add('show');area.innerHTML='<div class="skeleton"></div>';try{const d=await get('/api/providers/');const matches=d.providers.filter(p=>!query||`${p.name} ${p.specialty}`.toLowerCase().includes(query));area.innerHTML=matches.length?matches.map((p,i)=>`<button class="provider" data-provider="${i}"><b>${p.name}</b><small>${p.specialty} · ${p.distance} · ★ ${p.rating}</small><em>${p.available}</em><span>View availability →</span></button>`).join(''):'<p class="empty">No exact matches. Try “primary care” or clear your search.</p>';area.onclick=event=>{const card=event.target.closest('[data-provider]');if(!card)return;const p=matches[Number(card.dataset.provider)];openDetail(p.name,`<p>${p.specialty} · ${p.distance} away · ★ ${p.rating}</p><p><b>Next available:</b> ${p.available}</p>`,'Request appointment');};}catch{area.innerHTML='<p class="empty">Unable to load providers right now.</p>';}};
 $('#clear-search').onclick=()=>{const form=$('#provider-search');form.querySelector('input').value='';$('#clear-search').hidden=true;form.requestSubmit();form.querySelector('input').focus();};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#account-menu').classList.remove('show');$('#profile-button').setAttribute('aria-expanded','false');}});
