@@ -1,0 +1,65 @@
+{
+  "diagnostics": {
+    "dynatrace": "available",
+    "datadog": "available",
+    "zabbix": "available",
+    "splunk": "available",
+    "solarwinds": "available"
+  },
+  "catalog_diagnostics": {
+    "applications": {"dynatrace": "available", "datadog": "available", "zabbix": "unsupported_universal_application_catalog", "splunk": "available", "solarwinds": "available"},
+    "dashboards": {"dynatrace": "available", "datadog": "available", "zabbix": "available", "splunk": "available", "solarwinds": "available"},
+    "metrics": {"dynatrace": "available", "datadog": "available", "zabbix": "available", "splunk": "available", "solarwinds": "available"}
+  },
+  "operational_diagnostics": {
+    "service_relationships": {"dynatrace": "available", "datadog": "available", "zabbix": "available", "splunk": "unsupported_no_reliable_relationship_source", "solarwinds": "available"},
+    "alerts": {"dynatrace": "available", "datadog": "available", "zabbix": "available", "splunk": "available", "solarwinds": "available"},
+    "trace_availability": {"dynatrace": "limited", "datadog": "available", "zabbix": "limited", "splunk": "limited", "solarwinds": "limited"}
+  },
+  "operational": {
+    "service_relationships": [
+      {"tool": "dynatrace", "source_id": "SERVICE-1", "source": "claims-api", "target_id": "HOST-1", "target": "worker-1.example.net", "relationship": "runsOn", "evidence": "entity_relationship"},
+      {"tool": "datadog", "source_id": "claims-api", "source": "claims-api", "target_id": "claims-db", "target": "claims-db", "relationship": "calls", "evidence": "APM_service_dependencies"},
+      {"tool": "solarwinds", "source_id": "42", "source": "Claims API health", "target_id": "7", "target": "worker-1.example.net", "relationship": "runs_on", "evidence": "SAM_application_node"}
+    ],
+    "alerts": [
+      {"tool": "dynatrace", "source_id": "P-1", "name": "Claims API errors", "host": "", "service": "claims-api", "severity": "ERROR", "status": "CLOSED", "opened_at": "2026-09-01T10:00:00+00:00", "resolved_at": "2026-09-01T10:30:00+00:00", "duration_minutes": 30.0, "measurement": "problem_resolution"},
+      {"tool": "dynatrace", "source_id": "P-2", "name": "Host unavailable", "host": "worker-1.example.net", "service": "", "severity": "ERROR", "status": "OPEN", "opened_at": "2026-09-02T10:00:00+00:00", "resolved_at": "", "duration_minutes": null, "measurement": "problem_resolution"},
+      {"tool": "zabbix", "source_id": "E-1", "name": "High CPU", "host": "worker-1", "service": "", "severity": "3", "status": "resolved", "opened_at": "2026-09-01T11:00:00+00:00", "resolved_at": "2026-09-01T11:20:00+00:00", "duration_minutes": 20.0, "measurement": "trigger_recovery"},
+      {"tool": "solarwinds", "source_id": "A-1", "name": "Node down", "host": "worker-1.example.net", "service": "", "severity": "", "status": "resolved", "opened_at": "2026-09-01T12:00:00+00:00", "resolved_at": "2026-09-01T13:00:00+00:00", "duration_minutes": 60.0, "measurement": "alert_reset"}
+    ],
+    "trace_availability": [
+      {"tool": "datadog", "service": "claims-api", "host": "", "status": "yes", "evidence": "APM_service_list.isTraced"},
+      {"tool": "dynatrace", "service": "claims-api", "host": "worker-1.example.net", "status": "unknown", "evidence": "no_direct_trace_status_in_current_connector"},
+      {"tool": "splunk", "service": "application_log", "host": "worker-1.example.net", "status": "unknown", "evidence": ""}
+    ]
+  },
+  "catalog": {
+    "applications": [
+      {"tool": "dynatrace", "source_id": "SERVICE-1", "name": "claims-api", "host": "worker-1.example.net", "scope": "SERVICE", "status": "monitored_entity"},
+      {"tool": "datadog", "source_id": "claims-api", "name": "claims-api", "host": "", "scope": "", "status": "APM_service"},
+      {"tool": "solarwinds", "source_id": "42", "name": "Claims API health", "host": "worker-1.example.net", "scope": "", "status": "SAM_application"},
+      {"tool": "splunk", "source_id": "application_log", "name": "application_log", "host": "worker-1.example.net", "scope": "", "status": "inferred_from_logs"}
+    ],
+    "dashboards": [
+      {"tool": "dynatrace", "source_id": "db-1", "name": "Production overview", "host": "", "scope": "classic", "status": "listed"},
+      {"tool": "datadog", "source_id": "dash-1", "name": "Claims service", "host": "", "scope": "", "status": "listed"},
+      {"tool": "zabbix", "source_id": "12", "name": "Host health", "host": "", "scope": "", "status": "listed"}
+    ],
+    "metrics": [
+      {"tool": "dynatrace", "source_id": "builtin:host.cpu.usage", "name": "CPU usage", "host": "", "scope": "Percent", "status": "active_24h"},
+      {"tool": "datadog", "source_id": "system.mem.used", "name": "system.mem.used", "host": "worker-1.example.net", "scope": "", "status": "active_24h"},
+      {"tool": "zabbix", "source_id": "42269", "name": "CPU utilization", "host": "worker-1", "scope": "system.cpu.util", "status": "active_24h"},
+      {"tool": "splunk", "source_id": "app.request.count", "name": "app.request.count", "host": "", "scope": "", "status": "active_24h"},
+      {"tool": "solarwinds", "source_id": "100", "name": "N.Cpu.SNMP", "host": "", "scope": "N:7", "status": "configured_poller"}
+    ]
+  },
+  "observations": [
+    {"tool": "dynatrace", "source_id": "HOST-1", "name": "worker-1.example.net", "aliases": ["10.0.0.10"], "signals": ["full_stack", "cpu", "memory", "disk", "application", "kubernetes"], "evidence": {"full_stack": ["host.properties.monitoringMode"]}},
+    {"tool": "datadog", "source_id": "worker-1", "name": "worker-1.example.net", "signals": ["cpu", "memory", "disk", "cloud"], "evidence": {"cpu": ["metric:system.cpu.user"]}},
+    {"tool": "zabbix", "source_id": "1001", "name": "worker-1", "aliases": ["10.0.0.10"], "signals": ["cpu", "memory"], "evidence": {"cpu": ["item:system.cpu.util"]}},
+    {"tool": "splunk", "source_id": "worker-1.example.net", "name": "worker-1.example.net", "signals": ["application"], "evidence": {"application": ["sourcetype:application_log"]}},
+    {"tool": "solarwinds", "source_id": "7", "name": "worker-1.example.net", "signals": ["cpu", "memory", "disk"], "evidence": {"disk": ["Orion.Volumes"]}},
+    {"tool": "zabbix", "source_id": "1002", "name": "db-1.example.net", "signals": ["cpu", "disk"], "evidence": {"disk": ["item:vfs.fs.size"]}}
+  ]
+}

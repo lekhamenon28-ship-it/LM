@@ -1,0 +1,22 @@
+{
+  "datasets": {
+    "entities": {"status":"available","endpoint":"fixture","pages":1,"data":[
+      {"entityId":"HOST-1","type":"HOST","displayName":"worker-1","healthState":"HEALTHY","tags":[{"key":"owner","value":"platform"}],"managementZones":[{"name":"Production"}]},
+      {"entityId":"K8S_CLUSTER-1","type":"KUBERNETES_CLUSTER","displayName":"health-platform","healthState":"HEALTHY","tags":[{"key":"environment","value":"prod"}]},
+      {"entityId":"CLOUD_APPLICATION-1","type":"CLOUD_APPLICATION","displayName":"claims-service","healthState":"UNHEALTHY","tags":[{"key":"owner","value":"claims"}],"managementZones":[{"name":"Production"}]},
+      {"entityId":"SERVICE-1","type":"SERVICE","displayName":"claims-api","healthState":"UNHEALTHY","tags":[{"key":"criticality","value":"high"}],"managementZones":[{"name":"Production"}]},
+      {"entityId":"APPLICATION-1","type":"APPLICATION","displayName":"member-portal","healthState":"HEALTHY","tags":[],"managementZones":[{"name":"Production"}]},
+      {"entityId":"DATABASE-1","type":"DATABASE_SERVICE","displayName":"claims-db","healthState":"HEALTHY","tags":[]}
+    ]},
+    "entity_types":{"status":"available","endpoint":"fixture","pages":1,"data":[]},
+    "metrics":{"status":"available","endpoint":"fixture","pages":1,"data":[{"metricId":"builtin:host.cpu.usage"},{"metricId":"builtin:kubernetes.container.restarts"},{"metricId":"builtin:service.requestCount.total"},{"metricId":"builtin:apps.web.action.count"},{"metricId":"builtin:tech.database.queries"}]},
+    "problems":{"status":"available","endpoint":"fixture","pages":1,"data":[{"problemId":"P-1","status":"CLOSED","rootCauseEntity":{"entityId":{"id":"SERVICE-1"}}},{"problemId":"P-2","status":"OPEN"}]},
+    "settings_schemas":{"status":"available","endpoint":"fixture","pages":1,"data":[{"schemaId":"builtin:alerting.profile"},{"schemaId":"builtin:problem.notifications"}]},
+    "settings_objects":{"status":"available","endpoint":"fixture","pages":1,"data":[{"schemaId":"builtin:alerting.profile"},{"schemaId":"builtin:problem.notifications"}]},
+    "slos":{"status":"available","endpoint":"fixture","pages":1,"data":[{"id":"SLO-1","name":"Claims availability"}]},
+    "synthetic_monitors":{"status":"available","endpoint":"fixture","pages":1,"data":[{"entityId":"SYNTHETIC_TEST-1","name":"Member portal"}]},
+    "management_zones":{"status":"available","endpoint":"fixture","pages":1,"data":[{"id":"1","name":"Production"}]},
+    "alerting_profiles":{"status":"available","endpoint":"fixture","pages":1,"data":[{"id":"1","displayName":"Production"}]},
+    "notifications":{"status":"available","endpoint":"fixture","pages":1,"data":[{"id":"1","name":"Ops email"}]}
+  }
+}
