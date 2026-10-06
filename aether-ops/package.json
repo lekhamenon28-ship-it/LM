@@ -1,0 +1,24 @@
+{
+  "name": "aether-ops-platform",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/server.mjs",
+    "start": "node scripts/server.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node tests/telemetry.mjs && python3 tests/python-runner.py && node tests/python-agents.mjs && python3 tests/gateway-adapters.py && node tests/infrastructure.mjs && node tests/auth-api.mjs && node tests/workspace-api.mjs && node tests/agent-studio-api.mjs",
+    "test:python-flow": "node tests/python-flow.mjs",
+    "test:browser": "node tests/auth.mjs && node tests/knowledge-workspace.mjs && node tests/agent-studio-browser.mjs"
+  },
+  "devDependencies": {
+    "agent-browser": "0.21.0",
+    "esbuild": "^0.28.2",
+    "lucide": "0.468.0",
+    "playwright": "1.58.2",
+    "tailwindcss": "3.4.17"
+  },
+  "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.62",
+    "ai": "^7.0.127"
+  }
+}

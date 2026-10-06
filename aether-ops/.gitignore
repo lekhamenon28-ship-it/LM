@@ -1,0 +1,8 @@
+node_modules/
+.tools/
+dist/
+test-results/
+.data/
+
+__pycache__/
+*.pyc

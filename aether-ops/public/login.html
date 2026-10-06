@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in · AETHER.OPS</title><link rel="stylesheet" href="/assets/styles.css"></head>
+<body class="bg-slate-50 text-navy-950 min-h-screen">
+<main class="min-h-screen grid lg:grid-cols-2">
+ <section class="hidden lg:flex flex-col justify-between bg-navy-950 text-white p-14 relative overflow-hidden">
+  <div class="text-xl font-extrabold tracking-wide">AETHER<span class="text-blue-400">.OPS</span></div>
+  <div><span class="text-xs font-mono text-blue-300 tracking-widest uppercase">Your operations. Your agents.</span><h1 class="text-5xl font-extrabold leading-tight mt-5 mb-6">A workspace for<br>intelligent operations.</h1><p class="text-slate-300 max-w-md leading-relaxed">Connect tools, build executable agent workflows, and bring operational knowledge into one workspace.</p><div class="grid grid-cols-3 gap-4 mt-12 border-t border-slate-700 pt-6 text-xs"><div><strong class="block text-blue-300 mb-2">Agent Workflows</strong>Specialized agent workflows</div><div><strong class="block text-blue-300 mb-2">Safety Controls</strong>Operator approvals</div><div><strong class="block text-blue-300 mb-2">Observability</strong>Review execution evidence</div></div></div>
+  <p class="text-xs text-slate-400">Agentic AI Operations Platform</p>
+ </section>
+ <section class="flex items-center justify-center p-6 sm:p-12"><div class="w-full max-w-md">
+  <div class="text-xl font-extrabold tracking-wide text-navy-950 mb-12 lg:hidden">AETHER<span class="text-blue-600">.OPS</span></div>
+  <span class="text-xs font-mono text-blue-600 tracking-widest uppercase">Welcome back</span><h2 class="text-3xl font-extrabold mt-3">Sign in to your workspace</h2><p class="text-sm text-slate-500 mt-3 mb-8">Enter your user ID and password to continue.</p>
+  <form id="loginForm" class="space-y-5">
+   <div><label for="loginUser" class="block text-sm font-semibold mb-2">User ID</label><input id="loginUser" name="username" autocomplete="username" required maxlength="40" class="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:border-blue-600" placeholder="Enter your user ID" autofocus></div>
+   <div><label for="loginPassword" class="block text-sm font-semibold mb-2">Password</label><div class="relative"><input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="128" class="w-full pl-4 pr-20 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:border-blue-600" placeholder="Enter your password"><button id="showPassword" type="button" class="absolute right-3 top-3 text-xs font-semibold text-blue-600" aria-label="Show password">Show</button></div></div>
+   <p id="loginError" role="alert" class="hidden text-sm text-rose-700 p-3 rounded-lg bg-rose-50 border border-rose-200"></p>
+   <button id="loginSubmit" type="submit" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-sm disabled:opacity-60">Sign in</button>
+  </form>
+  <p class="text-xs text-slate-500 mt-8">Need an account? Ask your administrator to create a user ID.</p>
+ </div></section>
+</main><script src="/assets/login.js"></script></body></html>

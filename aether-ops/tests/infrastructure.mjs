@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import worker from '../dist/server/index.js';
+const sqlite=new DatabaseSync(':memory:');
+const DB={prepare(sql){let args=[];return {bind(...values){args=values;return this},async run(){return sqlite.prepare(sql).run(...args)},async first(){return sqlite.prepare(sql).get(...args)||null},async all(){return {results:sqlite.prepare(sql).all(...args)}}}}};
+const env={BOOTSTRAP_ADMIN_USERNAME:'itops',BOOTSTRAP_ADMIN_PASSWORD:'itops-test-password',DB,ASSETS:{fetch:async()=>new Response('missing',{status:404})}};
+const origin='https://infra.test';
+async function call(path,method='GET',data,cookie,token){return worker.fetch(new Request(origin+path,{method,headers:{Origin:origin,...(data?{'Content-Type':'application/json'}:{}),...(cookie?{Cookie:cookie}:{}),...(token?{Authorization:'Bearer '+token}:{})},...(data?{body:JSON.stringify(data)}:{})}),env)}
+const login=await call('/api/auth/login','POST',{username:'itops',password:'itops-test-password'});const cookie=login.headers.get('Set-Cookie').split(';')[0];
+assert.equal((await call('/api/infrastructure')).status,401);
+const gateway=await (await call('/api/infrastructure/gateways','POST',{name:'Private gateway'},cookie)).json();assert.ok(gateway.token);
+assert.notEqual(sqlite.prepare('SELECT token_hash FROM infra_gateways').get().token_hash,gateway.token);
+const connection=await (await call('/api/infrastructure/connections','POST',{name:'Production NetApp',product:'netapp',gatewayId:gateway.id,credentialRef:'netapp_prod'},cookie)).json();assert.ok(connection.id);
+const snapshot=await (await call('/api/infrastructure','GET',null,cookie)).json();assert.equal(snapshot.connections[0].status,'Not tested');assert.deepEqual(snapshot.connections[0].inventory,[]);assert.ok(!JSON.stringify(snapshot).includes(gateway.token));
+assert.equal((await call('/api/gateway/poll','POST',{},null,'0'.repeat(64))).status,401);
+assert.equal((await call('/api/infrastructure/connections/'+connection.id+'/inventory','POST',{},cookie)).status,202);
+const poll=await (await call('/api/gateway/poll','POST',{},null,gateway.token)).json();assert.equal(poll.job.credentialRef,'netapp_prod');assert.equal(poll.job.operation,'inventory');
+assert.equal((await call('/api/infrastructure/connections/'+connection.id+'/test','POST',{},cookie)).status,409);
+assert.equal((await call('/api/gateway/result','POST',{jobId:poll.job.id,ok:true,items:[{id:'vol1',name:'Real volume',type:'volume',status:'online'}]},null,gateway.token)).status,200);
+assert.equal((await call('/api/gateway/result','POST',{jobId:poll.job.id,ok:true,items:[]},null,gateway.token)).status,409);
+let result=await (await call('/api/infrastructure','GET',null,cookie)).json();assert.equal(result.connections[0].inventory[0].name,'Real volume');assert.equal(result.connections[0].status,'Connected');
+await call('/api/infrastructure/connections/'+connection.id+'/test','POST',{},cookie);const testJob=await (await call('/api/gateway/poll','POST',{},null,gateway.token)).json();await call('/api/gateway/result','POST',{jobId:testJob.job.id,ok:false,items:[]},null,gateway.token);
+result=await (await call('/api/infrastructure','GET',null,cookie)).json();assert.equal(result.connections[0].status,'Failed');assert.equal(result.connections[0].inventory.length,1);
+await call('/api/users','POST',{username:'operator',password:'opspass-long-password'},cookie);const op=await call('/api/auth/login','POST',{username:'operator',password:'opspass-long-password'});const opCookie=op.headers.get('Set-Cookie').split(';')[0];assert.equal((await call('/api/infrastructure/gateways','POST',{name:'not allowed'},opCookie)).status,403);assert.equal((await call('/api/infrastructure','GET',null,opCookie)).status,200);
+await call('/api/infrastructure/gateways/'+gateway.id,'DELETE',{},cookie);assert.equal((await call('/api/gateway/poll','POST',{},null,gateway.token)).status,401);
+console.log('PASS infrastructure pairing, hashed credentials, private jobs, live snapshots, failed checks, replay rejection, operator permissions and gateway revocation');
+sqlite.close();

@@ -1,0 +1,45 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+import {existsSync} from 'node:fs';
+import {homedir} from 'node:os';
+const fallback=homedir()+'/.agent-browser/browsers/chrome-154.0.8037.92/chrome';
+const browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||(existsSync(fallback)?fallback:undefined),args:['--no-sandbox']});
+const base=process.env.TEST_APP_URL||'http://127.0.0.1:3000';
+const adminName=process.env.TEST_USER||'itops',adminPassword=process.env.TEST_PASSWORD||'itops';
+const admin=await browser.newContext({viewport:{width:1440,height:1000}});const page=await admin.newPage();
+const anonymous=await browser.newContext();
+const errors=[];page.on('pageerror',e=>errors.push(e.message));
+const username='operator-'+Date.now();let userId;
+async function login(p,name,password){await p.goto(base);await p.locator('#loginUser').fill(name);await p.locator('#loginPassword').fill(password);await p.locator('#loginSubmit').click()}
+try{
+ assert.equal((await anonymous.request.get(base+'/api/users')).status(),401);
+ assert.equal((await anonymous.request.get(base+'/assets/app.js')).status(),401);
+ await page.goto(base);await page.screenshot({path:'test-results/login.png',fullPage:true});
+ assert.equal(await page.locator('#loginForm').count(),1);assert.equal(await page.locator('#mainWorkspace').count(),0);
+ console.log('PASS Anonymous visitors see login; app scripts and user APIs require sessions');
+ await page.locator('#loginUser').fill(adminName);await page.locator('#loginPassword').fill('incorrect');await page.locator('#loginSubmit').click();await page.locator('#loginError:not(.hidden)').waitFor();assert.match(await page.locator('#loginError').innerText(),/Invalid/);
+ await page.locator('#loginPassword').fill(adminPassword);await page.locator('#loginSubmit').click();await page.locator('[data-tab="users"]').waitFor();
+ console.log('PASS Invalid login rejected and itops administrator can sign in');
+ const cookies=await admin.cookies();assert.equal(cookies[0].httpOnly,true);assert.equal(cookies[0].sameSite,'Lax');assert.equal(await page.evaluate(()=>document.cookie.includes('aether_session')),false);
+ assert.equal((await admin.request.post(base+'/api/users',{headers:{Origin:'https://other.example'},data:{username:'forbidden',password:'secret'}})).status(),403);
+ console.log('PASS HttpOnly session cookies and cross-origin write protection');
+ await page.locator('[data-tab="users"]').click();await page.locator('#newUserId').fill(username);await page.locator('#newUserPassword').fill('firstpass-long-password');await page.locator('#newUserPasswordConfirm').fill('firstpass-long-password');await page.locator('#createUserSubmit').click();await page.locator('#usersList').getByText(username,{exact:true}).waitFor();
+ const users=await (await admin.request.get(base+'/api/users')).json();const added=users.users.find(u=>u.username===username);userId=added.id;assert.equal(added.role,'user');assert.equal(added.password_hash,undefined);assert.equal(added.password,undefined);
+ const duplicate=await admin.request.post(base+'/api/users',{headers:{Origin:base},data:{username,password:'firstpass-long-password'}});assert.equal(duplicate.status(),409);
+ console.log('PASS Administrator creates shared users; duplicates rejected; hashes not exposed');
+ await page.screenshot({path:'test-results/user-management.png',fullPage:true});
+ const operator=await browser.newContext();const operatorPage=await operator.newPage();await login(operatorPage,username,'firstpass-long-password');await operatorPage.locator('#mainWorkspace').waitFor();assert.equal(await operatorPage.locator('[data-tab="users"]').count(),0);assert.equal((await operator.request.get(base+'/api/users')).status(),403);
+ console.log('PASS New account signs in from a separate browser; admin functions are protected');
+ await page.locator(`[data-reset-user="${userId}"]`).click();await page.locator('#resetUserPassword').fill('secondpass-long-password');await page.locator('#resetUserConfirm').fill('secondpass-long-password');await page.locator('#resetUserForm').getByRole('button',{name:'Save new password'}).click();await page.locator('#detailDialog').waitFor({state:'hidden'});assert.equal((await operator.request.get(base+'/api/auth/me')).status(),401);
+ await login(operatorPage,username,'firstpass-long-password');await operatorPage.locator('#loginError:not(.hidden)').waitFor();await operatorPage.locator('#loginPassword').fill('secondpass-long-password');await operatorPage.locator('#loginSubmit').click();await operatorPage.locator('#mainWorkspace').waitFor();
+ console.log('PASS Password resets revoke sessions and new credentials work');
+ await operatorPage.getByRole('button',{name:'Change password',exact:true}).click();await operatorPage.locator('#currentPassword').fill('secondpass-long-password');await operatorPage.locator('#newPassword').fill('thirdpass-long-password');await operatorPage.locator('#confirmPassword').fill('thirdpass-long-password');await operatorPage.locator('#changePasswordForm').getByRole('button',{name:'Update password'}).click();await operatorPage.locator('#detailDialog').waitFor({state:'hidden'});
+ await operatorPage.getByRole('button',{name:'Sign out',exact:true}).click();await operatorPage.locator('#loginForm').waitFor();await login(operatorPage,username,'thirdpass-long-password');await operatorPage.locator('#mainWorkspace').waitFor();
+ console.log('PASS Users can change their password and sign out');
+ await page.locator(`[data-toggle-user="${userId}"]`).click();await page.locator(`[data-toggle-user="${userId}"]`).filter({hasText:'Enable'}).waitFor();assert.equal((await operator.request.get(base+'/api/auth/me')).status(),401);
+ const currentAdmin=users.users.find(u=>u.username===adminName);assert.equal((await admin.request.patch(base+'/api/users/'+currentAdmin.id,{headers:{Origin:base},data:{active:false}})).status(),400);
+ console.log('PASS Disabling accounts revokes sessions; administrator stays active');
+ await page.getByRole('button',{name:'Sign out',exact:true}).click();await page.locator('#loginForm').waitFor();await page.setViewportSize({width:390,height:844});await page.screenshot({path:'test-results/login-mobile.png',fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ assert.deepEqual(errors,[]);console.log('PASS Mobile login fits and no JavaScript errors');
+ console.log('9 authentication browser checks passed.');
+}finally{await browser.close()}

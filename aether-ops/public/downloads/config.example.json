@@ -1,0 +1,40 @@
+{
+  "site": "https://aether-ops-aiops.lekhamenon28.chatgpt.site",
+  "profiles": {
+    "netapp_prod": {
+      "product": "netapp",
+      "endpoint": "https://ontap.example.internal",
+      "auth": "basic",
+      "username": "readonly",
+      "passwordEnv": "NETAPP_PASSWORD",
+      "caFile": "/etc/company/ca.pem"
+    },
+    "k8s_prod": {
+      "product": "kubernetes",
+      "endpoint": "https://kubernetes.example.internal:6443",
+      "auth": "bearer",
+      "tokenEnv": "K8S_TOKEN",
+      "caFile": "/etc/company/ca.pem"
+    },
+    "linux_local": {
+      "product": "linux",
+      "command": [
+        "python3",
+        "linux_inventory.py"
+      ]
+    }
+  },
+  "agents": {
+    "my_python_agent": {
+      "mode": "observe",
+      "command": [
+        "python3",
+        "python_entrypoint.py",
+        "--module",
+        "example_agent",
+        "--function",
+        "run"
+      ]
+    }
+  }
+}

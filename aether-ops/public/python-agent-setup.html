@@ -1,0 +1,43 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Onboard Python agents — Aether</title><link rel="stylesheet" href="/assets/styles.css"></head><body class="bg-slate-50 text-slate-800"><main class="max-w-3xl mx-auto p-8 space-y-5"><a href="/#python-agents" class="text-blue-700">← Python Agents</a><h1 class="text-2xl font-bold">Onboard your existing Python agents</h1><p>Your code runs inside your network, in your existing virtual environment. The hosted app stores registration, run input, status and JSON results. Agents may use LangGraph, CrewAI or another framework through a small Python wrapper.</p><ol class="list-decimal pl-6 space-y-3"><li>Register a private-network gateway in Infrastructure Integrations. If you already run a gateway, download the latest <a class="text-blue-700 underline" href="/downloads/agent.py" download>agent.py</a>, replace the old version and restart it. Older gateways support only inventory.</li><li>Keep your existing Python code and dependencies on the gateway machine. Use the Python executable from the agent's virtual environment in the command configuration.</li><li>Adapt the agent to read a JSON object from stdin and print one JSON result to stdout. If it already follows that contract, register its script directly. For an existing function, use the wrapper below.</li><li>Add an <code>agents</code> entry to your gateway configuration, using a local alias and an argv array. Restart the gateway after editing configuration.</li><li>In Python Agents, click Onboard Python agent. Enter its name, description, gateway, matching alias and execution mode.</li><li>Click Run agent, enter JSON input and approve the run if it can change infrastructure. Inspect the run from Run history after the gateway completes.</li></ol><section class="bg-white border rounded-xl p-5"><h2 class="font-bold mb-3">Wrap an existing Python function</h2><p>Download <a href="/downloads/python_entrypoint.py" download class="text-blue-700 underline">python_entrypoint.py</a> and the runnable <a href="/downloads/example_agent.py" download class="text-blue-700 underline">example_agent.py</a>. A callable accepts a dictionary and returns a JSON-serializable result; synchronous and asynchronous callables are supported.</p><pre class="text-xs bg-slate-50 p-4 mt-3 overflow-auto">def run(payload):
+    # Call your existing agent here.
+    result = existing_agent.invoke(payload)
+    return {"summary": str(result)}</pre><p class="mt-3 text-sm">Set the module to your importable module name, such as <code>my_existing_agent</code>, and function to your callable name. Framework-specific initialization stays in your own module. Agent print statements are redirected away from the JSON result.</p></section><section class="bg-white border rounded-xl p-5"><h2 class="font-bold mb-3">Gateway configuration</h2><p>Merge this entry into your existing configuration alongside <code>site</code> and <code>profiles</code>. Paths below are examples; use your actual virtual environment and working directory.</p><pre class="text-xs bg-slate-50 p-4 mt-3 overflow-auto">"agents": {
+  "my_python_agent": {
+    "mode": "observe",
+    "cwd": "/opt/my-agents",
+    "command": [
+      "/opt/my-agents/.venv/bin/python",
+      "/opt/my-agents/python_entrypoint.py",
+      "--module", "my_existing_agent",
+      "--function", "run"
+    ]
+  }
+}</pre><p class="mt-3 text-sm">The example configuration download includes a runnable <code>my_python_agent</code> entry. For a script that already reads JSON input, use <code>"command": ["/path/to/python", "/path/to/agent.py"]</code>. Commands are defined locally and never supplied by the hosted app. Input is passed on stdin.</p><a href="/downloads/config.example.json" download class="text-blue-700 underline text-sm">Download example gateway configuration</a></section><section class="bg-white border rounded-xl p-5"><h2 class="font-bold mb-3">Execution modes and limits</h2><p>Use <code>observe</code> for observation agents. Agents that may make changes use <code>change</code> in both app and local configuration, plus <code>"allowChanges": true</code> locally. Each change-mode run requires administrator approval in the app. The gateway rejects mismatched modes. Mode selection does not sandbox Python or enforce read-only infrastructure access; use service-account permissions appropriate to your agent.</p><p class="mt-3">Runs currently have a 60-second process timeout, a two-minute delivery window and a 16,000-character limit for each JSON input and result. Nonzero exits, invalid JSON and timeouts appear as failed runs. Raw stderr is kept out of the hosted app. Review your own returned output before including secrets or sensitive data: workspace users can inspect results.</p><p class="mt-3">Disable cancels queued runs and prevents new runs. A process already started continues until completion or timeout. Long-running services, streaming, schedules and orchestration between agents are not part of this onboarding release.</p></section><section class="bg-white border rounded-xl p-5"><h2 class="font-bold mb-3">Actual execution telemetry</h2><p>The gateway measures execution duration automatically. Update agent.py to enable duration reporting. Token counts and costs cannot be inferred from an arbitrary Python result. Read actual usage from your model response and return it in this optional field:</p><pre class="text-xs bg-slate-50 p-4 mt-3 overflow-auto">{
+  "summary": "Your actual agent result",
+  "_aether_telemetry": {
+    "inputTokens": 120,
+    "outputTokens": 45,
+    "cachedInputTokens": 0,
+    "provider": "your provider",
+    "model": "your actual model",
+    "cost": 0.001,
+    "currency": "USD"
+  }
+}</pre><p class="text-xs mt-3">The numbers above illustrate the format only. Replace them with real usage; omit any field that is unknown. cost is the total amount for this execution in the stated currency. Token totals are not converted into cost using assumed prices. Agent-reported usage and cost are not independently verified against provider billing.</p></section><section class="bg-white border rounded-xl p-5"><h2 class="font-bold mb-3">Report executions from your existing UI</h2><p>Keep your current UI. Register its agent alias and gateway here, then call <a href="/downloads/report_execution.py" download class="text-blue-700 underline">report_execution.py</a> from that UI's backend after an agent run completes. It reports data only; it does not run your agent. Use a stable unique execution ID so retries do not double-count.</p><pre class="text-xs bg-slate-50 p-4 mt-3 overflow-auto">from report_execution import report_execution
+import os
+
+report_execution(
+    "https://aether-ops-aiops.lekhamenon28.chatgpt.site",
+    os.environ["AETHER_GATEWAY_TOKEN"],
+    "my_python_agent",
+    existing_run_id,
+    {
+        "ok": True,
+        "input": actual_input,
+        "output": actual_result,
+        "durationMs": measured_duration_ms,
+        "usage": actual_usage,
+        "startedAt": actual_start_iso,
+        "finishedAt": actual_finish_iso
+    }
+)</pre><p class="text-xs mt-3">usage uses the same fields as _aether_telemetry above. Omit unknown usage or duration. startedAt and finishedAt are optional ISO timestamps; if omitted, the platform records receipt time. Results sent here are shared with workspace users. The API is POST /api/gateway/python/record authenticated with the gateway bearer token. The run is marked external-ui; no platform approval is implied for operations already executed elsewhere.</p></section></main></body></html>
