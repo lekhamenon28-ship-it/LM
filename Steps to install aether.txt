@@ -1,0 +1,190 @@
+Yes. These steps deploy the uploaded app on your **Linux server without Docker or internet access**.
+
+**One correction to my earlier guidance:** the current code blocks private model endpoints as well as private direct tool endpoints. You can deploy the workspace now, but internal AI model support requires a code change. The Python gateway can connect to internal infrastructure.
+
+### 1. Prepare the package on a connected Linux machine
+
+Use a machine with the **same CPU architecture and a compatible Linux environment** as the lab server. Install Node.js **22.13+**, then run:
+
+```bash
+git clone https://github.com/lekhamenon28-ship-it/LM.git
+cd LM/aether-ops
+
+npm ci
+npm run build
+```
+
+Package the application **including `node_modules` and built assets**:
+
+```bash
+tar \
+  --exclude='./.git' \
+  --exclude='./.data' \
+  --exclude='./.tools' \
+  --exclude='./test-results' \
+  --exclude='./dist' \
+  --exclude='./node_modules/.cache' \
+  --exclude='./__pycache__' \
+  -czf /tmp/aether-ops-lab.tar.gz .
+
+sha256sum /tmp/aether-ops-lab.tar.gz \
+  > /tmp/aether-ops-lab.tar.gz.sha256
+```
+
+The native server uses the built files in `public/`, so `dist/` is unnecessary for this deployment.
+
+Transfer both files into the lab through your approved process. Also bring approved offline installation packages for:
+
+- Node.js 22.13+.
+- Python 3.10+ if using the gateway.
+- Your lab’s HTTPS reverse proxy, if not already installed.
+
+### 2. Install on the lab server
+
+After installing Node.js, verify:
+
+```bash
+node --version
+node -e "require('node:sqlite'); console.log('SQLite available')"
+command -v node
+```
+
+Verify the transferred archive from its directory:
+
+```bash
+sha256sum -c aether-ops-lab.tar.gz.sha256
+```
+
+Create a dedicated service account and extract the app:
+
+```bash
+sudo useradd --system --home-dir /opt/aether-ops \
+  --shell /usr/sbin/nologin aetherops
+
+sudo mkdir -p /opt/aether-ops
+sudo tar -xzf aether-ops-lab.tar.gz -C /opt/aether-ops
+sudo chown -R aetherops:aetherops /opt/aether-ops
+```
+
+You do **not** need to run `npm ci` inside the lab.
+
+### 3. Configure credentials
+
+Create a protected configuration file:
+
+```bash
+sudo install -m 600 /dev/null /etc/aether-ops.env
+sudo nano /etc/aether-ops.env
+```
+
+Enter:
+
+```ini
+PORT=3000
+BOOTSTRAP_ADMIN_USERNAME=lab-admin
+BOOTSTRAP_ADMIN_PASSWORD=REPLACE_WITH_A_STRONG_PASSWORD
+CREDENTIAL_ENCRYPTION_KEY=REPLACE_WITH_64_HEX_CHARACTERS
+```
+
+Use a password of **12–128 characters**. Generate the encryption key with:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
+
+Keep this key stable; stored credentials depend on it.
+
+### 4. Create the systemd service
+
+```bash
+sudo nano /etc/systemd/system/aether-ops.service
+```
+
+Paste:
+
+```ini
+[Unit]
+Description=AETHER.OPS
+After=network.target
+
+[Service]
+Type=simple
+User=aetherops
+Group=aetherops
+WorkingDirectory=/opt/aether-ops
+EnvironmentFile=/etc/aether-ops.env
+ExecStart=/usr/bin/node /opt/aether-ops/scripts/server.mjs
+Restart=on-failure
+RestartSec=5
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Replace `/usr/bin/node` with the path returned by `command -v node`.
+
+Start the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now aether-ops
+sudo systemctl status aether-ops
+```
+
+View logs:
+
+```bash
+sudo journalctl -u aether-ops -n 100 --no-pager
+```
+
+### 5. Verify access
+
+Open from an authorized lab workstation:
+
+```text
+http://LAB_SERVER_IP:3000
+```
+
+Sign in using your bootstrap credentials. Check that you can create a knowledge document and that it remains after restarting:
+
+```bash
+sudo systemctl restart aether-ops
+```
+
+The server currently listens on all interfaces. Restrict port `3000` to the intended lab network using your lab’s firewall rules.
+
+For ongoing use, configure your lab’s HTTPS proxy and certificate. **The Node server also needs an adjustment to recognize trusted HTTPS proxy requests and issue secure session cookies.**
+
+### 6. Connect lab systems
+
+Open `/gateway-setup` in the app and register a gateway. Configure the included `gateway/config.example.json` with:
+
+- Your **local app URL**, replacing the public hosted URL.
+- Internal infrastructure endpoints.
+- Local credential environment variables and CA certificates.
+
+Follow the setup page’s gateway launch instructions. Python agent dependencies must also be transferred offline.
+
+**Internal AI models and private direct REST tools require changes to endpoint validation and external DNS checking before they will work.**
+
+### 7. Back up data
+
+Stop the service briefly for a consistent backup:
+
+```bash
+sudo systemctl stop aether-ops
+
+sudo tar -czf /var/backups/aether-ops-data.tar.gz \
+  -C /opt/aether-ops .data
+
+sudo cp /etc/aether-ops.env /var/backups/aether-ops.env
+sudo chmod 600 /var/backups/aether-ops*
+
+sudo systemctl start aether-ops
+```
+
+Protect both backups: they contain application data and encryption secrets.
+
+The source is available in [your GitHub repository](https://github.com/lekhamenon28-ship-it/LM/tree/main/aether-ops). This procedure runs the current workspace offline; the internal model and HTTPS adjustments remain outstanding.
+
