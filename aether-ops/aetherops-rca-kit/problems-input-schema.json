@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "problemSelector": {"type": "string"},
+    "from": {"type": "string"},
+    "to": {"type": "string"},
+    "pageSize": {"type": "integer"},
+    "sort": {"type": "string"},
+    "fields": {"type": "string"},
+    "nextPageKey": {"type": "string"}
+  },
+  "additionalProperties": false
+}
