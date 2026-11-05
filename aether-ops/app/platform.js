@@ -3,7 +3,7 @@
   const features = new Map();
   const services = new Map();
   const hashRoute=location.hash.slice(1);
-  const initialRoute=({garden:'agents',creator:'agent-builder'})[hashRoute]||hashRoute;
+  const initialRoute=({garden:'agents',creator:'agent-builder',rca:'orchestrator'})[hashRoute]||hashRoute;
   let ready = false;
   const validId = id => typeof id === 'string' && /^[a-z][a-z0-9-]{1,63}$/.test(id);
   const snapshot = value => structuredClone(value);
