@@ -7,7 +7,7 @@ from unittest.mock import patch
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from credential_config import load_credentials
+from credential_config import load_credentials, initialize_credentials, read_credentials
 
 
 class CredentialConfigTests(unittest.TestCase):
@@ -30,6 +30,28 @@ class CredentialConfigTests(unittest.TestCase):
                 self.assertEqual(os.environ["ZBX_TOKEN"], "zbx-file")
                 self.assertEqual(os.environ["SPLUNK_TOKEN"], "splunk-file")
                 self.assertEqual(os.environ["SW_PASSWORD"], "sw-file")
+
+    def test_initialize_creates_all_tools_without_overwriting(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "credentials.json"
+            initialize_credentials(path)
+            data = read_credentials(path)
+            self.assertTrue({"dynatrace", "datadog", "zabbix", "splunk", "solarwinds"}.issubset(data))
+            self.assertEqual(data["dynatrace"]["api_token"], "")
+            if os.name != "nt":
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            with self.assertRaises(FileExistsError):
+                initialize_credentials(path)
+
+    def test_invalid_file_does_not_partially_load_environment(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "credentials.json"
+            path.write_text(json.dumps({"dynatrace": {"api_token": "secret"}, "splunk": {"api_token": 42}}))
+            path.chmod(0o600)
+            with patch.dict(os.environ, {}, clear=True):
+                with self.assertRaises(RuntimeError):
+                    load_credentials(path)
+                self.assertNotIn("DT_API_TOKEN", os.environ)
 
     @unittest.skipIf(os.name == "nt", "Unix permissions only")
     def test_rejects_world_readable_file(self):
