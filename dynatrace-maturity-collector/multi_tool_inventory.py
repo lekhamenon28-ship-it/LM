@@ -20,10 +20,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from collector import ApiClient
+from dynatrace_client import ApiClient
 from catalog_inventory import collect_catalog
-from credential_config import DEFAULT_FILE, load_credentials
+from credential_config import DEFAULT_FILE, load_credentials, read_credentials
+from licensing_usage import collect_usage, host_usage_fields
+from vendor_pricing import collect_vendor_pricing, dynatrace_pricing, write_pricing_outputs
 from operational_inventory import collect_operational, mttr_rows
+from alert_reporting import prepare_alerts, host_alert_fields, ALERT_COLUMNS
 
 TOOLS = ("dynatrace", "datadog", "zabbix", "splunk", "solarwinds")
 SIGNALS = ("full_stack", "cpu", "memory", "disk", "application", "kubernetes", "cloud")
@@ -38,6 +41,10 @@ class Observation:
     aliases: list[str] = field(default_factory=list)
     signals: list[str] = field(default_factory=list)
     evidence: dict[str, list[str]] = field(default_factory=dict)
+    host_status: str = "unknown"
+    monitoring_mode: str = "unknown"
+    last_seen: str = "unknown"
+    memory_gib: float | None = None
 
 
 def request_json(url: str, headers: dict[str, str], body: dict[str, Any] | None = None) -> Any:
@@ -88,7 +95,7 @@ def classify_sources(obs: Observation, values: list[str], prefix: str) -> None:
 
 def dynatrace() -> list[Observation]:
     client = ApiClient(required("DT_ENV_URL"), required("DT_API_TOKEN"))
-    fields = "+properties,+tags,+fromRelationships,+toRelationships"
+    fields = "+properties,+tags,+fromRelationships,+toRelationships,+lastSeenTms"
     observations: list[Observation] = []
     config_accessible = True
     for entity_type in ("HOST", "SERVICE", "PROCESS_GROUP_INSTANCE", "KUBERNETES_NODE", "CLOUD_APPLICATION"):
@@ -100,18 +107,32 @@ def dynatrace() -> list[Observation]:
                 aliases = [str(v) for v in (props.get("hostName"), props.get("ipAddresses", [])) if isinstance(v, str)]
                 aliases += [str(v) for v in props.get("ipAddresses", [])] if isinstance(props.get("ipAddresses"), list) else []
                 obs = Observation("dynatrace", str(host["entityId"]), name, aliases=aliases)
+                obs.host_status = str(props.get("state") or "unknown").lower()
+                if obs.host_status != "unknown":
+                    obs.evidence["host_status"] = ["entity.properties.state (last reported; not a live power-state probe)"]
+                last_seen = host.get("lastSeenTms")
+                if isinstance(last_seen, (int, float)):
+                    obs.last_seen = datetime.fromtimestamp(last_seen / 1000, timezone.utc).isoformat()
+                memory = props.get("physicalMemory") or props.get("memoryTotal")
+                if isinstance(memory, (int, float)) and memory > 0:
+                    obs.memory_gib = memory / (1024 ** 3)
                 mode = str(props.get("monitoringMode", ""))
+                mode_source = "entity.properties.monitoringMode"
                 if not mode and config_accessible:
                     try:
                         config = client.get("/api/config/v1/hosts/" + urllib.parse.quote(str(host["entityId"]), safe=""))
                         monitoring = config.get("monitoringConfig") or {}
                         if monitoring.get("monitoringEnabled") is not False:
                             mode = str(monitoring.get("monitoringMode", ""))
+                            mode_source = "OneAgent.monitoringConfig.monitoringMode"
                     except RuntimeError as exc:
                         if "HTTP 401" in str(exc) or "HTTP 403" in str(exc):
                             config_accessible = False
+                obs.monitoring_mode = mode.upper() or "unknown"
+                if mode:
+                    obs.evidence["monitoring_mode"] = [mode_source]
                 if mode.upper() == "FULL_STACK":
-                    add(obs, "full_stack", "OneAgent.monitoringConfig.monitoringMode")
+                    add(obs, "full_stack", mode_source)
                 observations.append(obs)
         else:
             for entity in entities:
@@ -293,39 +314,97 @@ def write_outputs(observations: list[Observation], diagnostics: dict[str, str], 
                   catalog: dict[str, list[dict[str, str]]] | None = None,
                   catalog_diagnostics: dict[str, dict[str, str]] | None = None,
                   operational: dict[str, list[dict[str, Any]]] | None = None,
-                  operational_diagnostics: dict[str, dict[str, str]] | None = None) -> None:
+                  operational_diagnostics: dict[str, dict[str, str]] | None = None,
+                  usage_rows: list[dict[str, Any]] | None = None,
+                  usage_diagnostics: dict[str, str] | None = None,
+                  pricing_catalog: dict[str, Any] | None = None) -> None:
     output.mkdir(parents=True, exist_ok=True)
     hosts = merge(observations)
+    pricing_catalog = pricing_catalog or collect_vendor_pricing(enabled=False)
+    write_pricing_outputs(pricing_catalog, output)
+    usage_rows = usage_rows or []
+    usage_diagnostics = usage_diagnostics or {}
+    usage_columns = list(host_usage_fields("", []))
+    metadata_columns = ["entity_id", "entity_ids", "host_status", "monitoring_mode", "last_seen", "memory_gib"]
+    for host in hosts:
+        dt = next((o for o in host["observations"] if o["tool"] == "dynatrace"), None)
+        host["entity_ids"] = {o["tool"]: o["source_id"] for o in host["observations"]}
+        host["entity_id"] = dt["source_id"] if dt else host["observations"][0]["source_id"]
+        for key in ["host_status", "monitoring_mode", "last_seen", "memory_gib"]:
+            host[key] = dt[key] if dt else "unknown"
+        host.update(host_usage_fields(dt["source_id"] if dt else "", usage_rows, usage_diagnostics))
+    # Keep the full outer join: historical billing entities must not disappear
+    # merely because they are absent from the current inventory snapshot.
+    combined_hosts = list(hosts)
+    current_ids = {h["entity_ids"].get("dynatrace") for h in hosts}
+    historical_ids = sorted({r["entity_id"] for r in usage_rows} - current_ids)
+    for entity_id in historical_ids:
+        historic = next(r for r in usage_rows if r["entity_id"] == entity_id)
+        combined_hosts.append({
+            "host": historic.get("host") or "unknown", "aliases": [], "tools": ["dynatrace"],
+            "tool_count": 1, "signals": [], "observations": [],
+            "entity_id": entity_id, "entity_ids": {"dynatrace": entity_id},
+            "host_status": "unknown", "monitoring_mode": "unknown", "last_seen": "unknown", "memory_gib": "unknown",
+            **host_usage_fields(entity_id, usage_rows, usage_diagnostics),
+        })
+    report_columns = ["record_type", "billing_modes", "full_stack_unit_rate", "infrastructure_unit_rate", "foundation_and_discovery_unit_rate", "usage_details"]
+    for host in combined_hosts:
+        entity_id = host["entity_ids"].get("dynatrace")
+        details = [r for r in usage_rows if r["entity_id"] == entity_id] if entity_id else []
+        host["record_type"] = "inventory_and_usage" if host["observations"] and details else "inventory_only" if host["observations"] else "usage_only"
+        host["billing_modes"] = "; ".join(sorted({r["monitoring_mode"] for r in details}))
+        host["usage_details"] = details
+        for mode in ("full_stack", "infrastructure", "foundation_and_discovery"):
+            rates = {r.get("unit_rate") for r in details if r["monitoring_mode"] == mode and r.get("unit_rate") is not None}
+            host[mode + "_unit_rate"] = next(iter(rates)) if len(rates) == 1 else "unknown"
     catalog = catalog or {kind: [] for kind in ("applications", "dashboards", "metrics")}
     catalog_diagnostics = catalog_diagnostics or {kind: {} for kind in catalog}
     operational = operational or {kind: [] for kind in ("service_relationships", "alerts", "trace_availability")}
     operational_diagnostics = operational_diagnostics or {kind: {} for kind in operational}
+    alert_rows, alert_events, alert_start, alert_end = prepare_alerts(operational.get("alerts", []), observations)
+    operational = {**operational, "alerts": alert_rows}
+    for host in combined_hosts:
+        host.update(host_alert_fields(host, alert_events, operational_diagnostics.get("alerts", {}), alert_start, alert_end))
     mttr = mttr_rows(operational.get("alerts", []))
     document = {"generated_at": datetime.now(timezone.utc).isoformat(), "hosts": hosts, "diagnostics": diagnostics,
                 "catalog": catalog, "catalog_diagnostics": catalog_diagnostics,
-                "operational": operational, "operational_diagnostics": operational_diagnostics, "mttr": mttr}
+                "operational": operational, "operational_diagnostics": operational_diagnostics, "mttr": mttr,
+                "combined_inventory": combined_hosts,
+                "licensing_usage": usage_rows, "licensing_diagnostics": usage_diagnostics,
+                "references": pricing_catalog["references"], "vendor_pricing": pricing_catalog["prices"]}
     (output / "host_inventory.json").write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
     with (output / "host_inventory.csv").open("w", newline="", encoding="utf-8") as handle:
-        columns = ["host", "aliases", "tools", "tool_count"] + list(TOOLS) + list(SIGNALS)
+        columns = ["host", "aliases", "tools", "tool_count"] + report_columns + metadata_columns + usage_columns + ALERT_COLUMNS + list(TOOLS) + list(SIGNALS)
         writer = csv.DictWriter(handle, columns)
         writer.writeheader()
-        for host in hosts:
+        for host in combined_hosts:
             row = {"host": host["host"], "aliases": "; ".join(host["aliases"]), "tools": "; ".join(host["tools"]), "tool_count": host["tool_count"]}
-            row.update({tool: "yes" if tool in host["tools"] else "unknown" if diagnostics.get(tool) != "available" else "no" for tool in TOOLS})
+            row.update({key: json.dumps(host[key], sort_keys=True) if key == "alert_details" else host[key] for key in ALERT_COLUMNS})
+            row.update({key: json.dumps(host[key], sort_keys=True) if key == "usage_details" else host[key] for key in report_columns})
+            row.update({key: json.dumps(host[key], sort_keys=True) if key == "entity_ids" else host[key] for key in metadata_columns + usage_columns})
+            row.update({tool: "unknown" if host["record_type"] == "usage_only" else "yes" if tool in host["tools"] else "unknown" if diagnostics.get(tool) != "available" else "no" for tool in TOOLS})
             row.update({signal: "yes" if signal in host["signals"] else "unknown" for signal in SIGNALS})
             writer.writerow(row)
     with (output / "tool_host_details.csv").open("w", newline="", encoding="utf-8") as handle:
-        columns = ["host", "tool", "source_id", "kind"] + list(SIGNALS) + ["evidence"]
+        columns = ["host", "tool", "source_id", "kind"] + metadata_columns + list(SIGNALS) + ["evidence"]
         writer = csv.DictWriter(handle, columns)
         writer.writeheader()
         for host in hosts:
             for obs in host["observations"]:
                 row = {"host": host["host"], "tool": obs["tool"], "source_id": obs["source_id"], "kind": obs["kind"], "evidence": json.dumps(obs["evidence"], sort_keys=True)}
+                row.update({key: obs.get(key, "unknown") for key in metadata_columns})
+                row["entity_id"] = obs["source_id"]
+                row["entity_ids"] = json.dumps({obs["tool"]: obs["source_id"]})
                 row.update({signal: "yes" if signal in obs["signals"] else "unknown" for signal in SIGNALS})
                 writer.writerow(row)
+    from licensing_usage import METRICS
+    # Remove the obsolete separate report when regenerating an existing output.
+    (output / "host_usage.csv").unlink(missing_ok=True)
     with (output / "connector_status.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         writer.writerow(["tool", "dataset", "status"])
+        writer.writerows((ref["tool"], "vendor_pricing", ref["status"]) for ref in pricing_catalog["references"])
+        writer.writerows(("dynatrace", "billing_" + mode, usage_diagnostics.get(mode, "not_collected")) for mode in METRICS)
         writer.writerows((tool, "hosts", diagnostics.get(tool, "not_configured")) for tool in TOOLS)
         writer.writerows((tool, kind, catalog_diagnostics.get(kind, {}).get(tool, "unknown")) for kind in ("applications", "dashboards", "metrics") for tool in TOOLS)
         writer.writerows((tool, kind, operational_diagnostics.get(kind, {}).get(tool, "unknown")) for kind in ("service_relationships", "alerts", "trace_availability") for tool in TOOLS)
@@ -337,14 +416,15 @@ def write_outputs(observations: list[Observation], diagnostics: dict[str, str], 
             writer.writerows(sorted(catalog.get(kind, []), key=lambda row: (row["tool"], row["name"].lower(), row.get("host", ""))))
     operational_columns = {
         "service_relationships": ["tool", "source_id", "source", "target_id", "target", "relationship", "evidence"],
-        "alerts": ["tool", "source_id", "name", "host", "service", "severity", "status", "opened_at", "resolved_at", "duration_minutes", "measurement"],
+        "alerts": ["tool", "source_id", "name", "host", "service", "severity", "status", "opened_at", "resolved_at", "duration_minutes", "measurement", "alert_type", "affected_host_entity_ids", "affected_host_names", "host_association_basis", "recent_occurrences_count", "latest_occurrence_timestamp", "occurrence_count_basis", "occurrence_window_start", "occurrence_window_end"],
         "trace_availability": ["tool", "service", "host", "status", "evidence"],
     }
     for kind, columns in operational_columns.items():
         with (output / (kind + ".csv")).open("w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, columns)
             writer.writeheader()
-            writer.writerows(sorted(operational.get(kind, []), key=lambda row: (row["tool"], row.get("name", row.get("service", row.get("source", ""))))))
+            ordered = sorted(operational.get(kind, []), key=lambda row: (row["tool"], row.get("name", row.get("service", row.get("source", "")))))
+            writer.writerows({k: json.dumps(v, sort_keys=True) if isinstance(v, (dict, list)) else v for k, v in row.items()} for row in ordered)
     with (output / "mttr.csv").open("w", newline="", encoding="utf-8") as handle:
         columns = ["tool", "measurement", "sample_count", "mean_minutes", "median_minutes"]
         writer = csv.DictWriter(handle, columns)
@@ -357,9 +437,14 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=Path("out"))
     parser.add_argument("--fixture", type=Path, help="JSON fixture with observations and diagnostics")
     parser.add_argument("--credentials", type=Path, default=DEFAULT_FILE, help="JSON credentials file (default: credentials.json beside this script)")
+    parser.add_argument("--usage-days", type=int, choices=range(1, 91), default=30, metavar="1..90", help="Dynatrace billing lookback in days (default: 30)")
     args = parser.parse_args()
+    usage_rows, usage_diagnostics = [], {}
+    pricing_catalog = collect_vendor_pricing(enabled=not bool(args.fixture))
     if args.fixture:
         data = json.loads(args.fixture.read_text(encoding="utf-8"))
+        usage_rows = data.get("licensing_usage", [])
+        usage_diagnostics = data.get("licensing_diagnostics", {})
         observations = [Observation(**item) for item in data["observations"]]
         diagnostics = data.get("diagnostics", {})
         catalog = data.get("catalog", {})
@@ -382,9 +467,15 @@ def main() -> int:
             except Exception as exc:
                 diagnostics[name] = str(exc)
                 print(f"{name}: {exc}", file=sys.stderr)
+        try:
+            usage_rows, usage_diagnostics = collect_usage(
+                ApiClient(required("DT_ENV_URL"), required("DT_API_TOKEN")), observations,
+                args.usage_days, dynatrace_pricing(read_credentials(args.credentials).get("pricing", {}), pricing_catalog))
+        except (RuntimeError, ValueError) as exc:
+            usage_diagnostics = {mode: str(exc) for mode in ("full_stack", "infrastructure", "foundation_and_discovery")}
         catalog, catalog_diagnostics = collect_catalog(observations)
         operational, operational_diagnostics = collect_operational(observations, catalog)
-    write_outputs(observations, diagnostics, args.output, catalog, catalog_diagnostics, operational, operational_diagnostics)
+    write_outputs(observations, diagnostics, args.output, catalog, catalog_diagnostics, operational, operational_diagnostics, usage_rows, usage_diagnostics, pricing_catalog)
     print(f"Wrote {len(merge(observations))} hosts to {args.output.resolve() / 'host_inventory.csv'}")
     return 0
 
