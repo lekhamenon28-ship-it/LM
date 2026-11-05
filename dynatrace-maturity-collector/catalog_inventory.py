@@ -11,7 +11,7 @@ import urllib.request
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from collector import ApiClient
+from dynatrace_client import ApiClient
 
 
 @dataclass
