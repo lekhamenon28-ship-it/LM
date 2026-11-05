@@ -7,11 +7,11 @@ import os
 import time
 import urllib.parse
 import urllib.request
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from collector import ApiClient
+from dynatrace_client import ApiClient
 from catalog_inventory import dd_client, get_json, post_json, required, solarwinds_query, splunk_auth, zabbix_call
 
 TOOLS = ("dynatrace", "datadog", "zabbix", "splunk", "solarwinds")
@@ -42,6 +42,10 @@ class Alert:
     resolved_at: str = ""
     duration_minutes: float | None = None
     measurement: str = ""
+    alert_type: str = "unknown"
+    affected_host_entity_ids: list[str] = field(default_factory=list)
+    affected_host_names: list[str] = field(default_factory=list)
+    host_association_basis: str = "unassigned"
 
 
 @dataclass
@@ -115,9 +119,20 @@ def dynatrace_alerts(hosts: list[Any]) -> list[Alert]:
         root_id = root.get("entityId") or {} if isinstance(root, dict) else {}
         service = str(root.get("name") or (root_id.get("id") if isinstance(root_id, dict) else root_id) or "") if isinstance(root, dict) else ""
         status = str(problem.get("status", ""))
+        affected_hosts = {}
+        for entity in [*(problem.get("affectedEntities") or []), *(problem.get("impactedEntities") or [])]:
+            entity_ref = entity.get("entityId") or {}
+            entity_id = entity_ref.get("id", "") if isinstance(entity_ref, dict) else str(entity_ref)
+            entity_type = entity_ref.get("type", "") if isinstance(entity_ref, dict) else ""
+            if entity_type == "HOST" or entity_id.startswith("HOST-"):
+                affected_hosts[entity_id] = str(entity.get("name") or entity_id)
         rows.append(alert_row("dynatrace", problem.get("problemId") or problem.get("displayId"), problem.get("title", ""),
                               problem.get("startTime"), problem.get("endTime"), "problem_resolution",
-                              service=service, severity=str(problem.get("severityLevel") or problem.get("impactLevel") or ""), status=status))
+                              service=service, severity=str(problem.get("severityLevel") or problem.get("impactLevel") or ""), status=status,
+                              alert_type=str(problem.get("severityLevel") or "unknown"),
+                              host="; ".join(affected_hosts.values()), affected_host_entity_ids=sorted(affected_hosts),
+                              affected_host_names=[affected_hosts[k] for k in sorted(affected_hosts)],
+                              host_association_basis="explicit_affected_or_impacted_host_entity" if affected_hosts else "unassigned"))
     return rows
 
 
@@ -172,7 +187,7 @@ def datadog_alerts(hosts: list[Any]) -> list[Alert]:
             groups = ((monitor.get("state") or {}).get("groups") or {})
             if not groups:
                 rows.append(Alert("datadog", str(monitor.get("id", "")), str(monitor.get("name", "")),
-                                  severity=str(monitor.get("priority") or ""), status=str(monitor.get("overall_state") or "unknown"), measurement="monitor_current_state"))
+                                  severity=str(monitor.get("priority") or ""), status=str(monitor.get("overall_state") or "unknown"), measurement="monitor_current_state", alert_type=str(monitor.get("type") or "unknown")))
             for group_name, state in groups.items():
                 if not isinstance(state, dict):
                     continue
@@ -181,7 +196,7 @@ def datadog_alerts(hosts: list[Any]) -> list[Alert]:
                 service = next((tag[8:] for tag in tags if tag.startswith("service:")), "")
                 row = alert_row("datadog", str(monitor.get("id", "")) + ":" + str(group_name), monitor.get("name", ""),
                                 state.get("last_triggered_ts"), state.get("last_resolved_ts"), "latest_monitor_recovery",
-                                host=host, service=service, severity=str(monitor.get("priority") or ""), status=str(state.get("status") or "unknown"))
+                                host=host, service=service, severity=str(monitor.get("priority") or ""), status=str(state.get("status") or "unknown"), alert_type=str(monitor.get("type") or "unknown"))
                 resolved = timestamp(state.get("last_resolved_ts"))
                 if resolved and resolved.timestamp() < time.time() - 30 * 86400:
                     row.duration_minutes = None
@@ -221,7 +236,7 @@ def zabbix_relationships(hosts: list[Any]) -> list[Relationship]:
 def zabbix_alerts(hosts: list[Any]) -> list[Alert]:
     since = int(time.time()) - 30 * 86400
     events = zabbix_call("event.get", {"output": ["eventid", "name", "clock", "value", "r_eventid", "severity", "acknowledged"],
-                                       "time_from": since, "selectHosts": ["host", "name"], "source": 0, "object": 0})
+                                       "time_from": since, "selectHosts": ["hostid", "host", "name"], "source": 0, "object": 0})
     recoveries = {str(event.get("eventid")): event for event in events if str(event.get("value")) == "0"}
     needed = {str(event.get("r_eventid")) for event in events if str(event.get("value")) == "1" and str(event.get("r_eventid", "0")) != "0"} - recoveries.keys()
     if needed:
@@ -236,7 +251,10 @@ def zabbix_alerts(hosts: list[Any]) -> list[Alert]:
         rows.append(alert_row("zabbix", event.get("eventid"), event.get("name", ""), event.get("clock"),
                               recovery.get("clock") if recovery else None, "trigger_recovery",
                               host=host, severity=str(event.get("severity") or ""),
-                              status="resolved" if recovery else "open"))
+                              status="resolved" if recovery else "open", alert_type="trigger_problem",
+                              affected_host_entity_ids=[str(h["hostid"]) for h in event.get("hosts", []) if h.get("hostid")],
+                              affected_host_names=[str(h.get("host") or h.get("name") or h.get("hostid")) for h in event.get("hosts", [])],
+                              host_association_basis="explicit_host_entity" if event.get("hosts") else "unassigned"))
     return rows
 
 
@@ -265,7 +283,7 @@ def solarwinds_alerts(hosts: list[Any]) -> list[Alert]:
                 resets.remove(matching)
             result.append(alert_row("solarwinds", trigger.get("AlertHistoryID"), trigger.get("Message", ""),
                                     trigger.get("TimeStamp"), matching.get("TimeStamp") if matching else None,
-                                    "alert_reset", status="resolved" if matching else "open"))
+                                    "alert_reset", status="resolved" if matching else "open", alert_type="alert_trigger"))
     return result
 
 
@@ -281,7 +299,7 @@ def splunk_alerts(hosts: list[Any]) -> list[Alert]:
             content = entry.get("content") or {}
             if str(content.get("is_scheduled", "0")) in ("1", "true", "True") and content.get("alert_type"):
                 result.append(Alert("splunk", str(entry.get("name", "")), str(entry.get("name", "")),
-                                    status="configured", measurement="saved_search_alert_rule"))
+                                    status="configured", measurement="saved_search_alert_rule", alert_type=str(content.get("alert_type") or "unknown")))
         offset += len(entries)
         if len(entries) < 500:
             break
