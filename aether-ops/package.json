@@ -6,9 +6,11 @@
     "dev": "node scripts/server.mjs",
     "start": "node scripts/server.mjs",
     "build": "node scripts/build.mjs",
-    "test": "node tests/telemetry.mjs && python3 tests/python-runner.py && node tests/python-agents.mjs && python3 tests/gateway-adapters.py && node tests/infrastructure.mjs && node tests/auth-api.mjs && node tests/workspace-api.mjs && node tests/agent-studio-api.mjs",
+    "test": "node tests/telemetry.mjs && python3 tests/python-runner.py && node tests/python-agents.mjs && python3 tests/gateway-adapters.py && node tests/infrastructure.mjs && node tests/auth-api.mjs && node tests/workspace-api.mjs && node tests/agent-studio-api.mjs && node tests/rca-workflows.mjs && node tests/analysis-workflows.mjs && node tests/model-limits.mjs",
     "test:python-flow": "node tests/python-flow.mjs",
-    "test:browser": "node tests/auth.mjs && node tests/knowledge-workspace.mjs && node tests/agent-studio-browser.mjs"
+    "test:browser": "node tests/auth.mjs && node tests/knowledge-workspace.mjs && node tests/agent-studio-browser.mjs",
+    "test:rca-browser": "node tests/rca-browser.mjs",
+    "test:workflows-browser": "node tests/workflow-browser.mjs"
   },
   "devDependencies": {
     "agent-browser": "0.21.0",
