@@ -1,0 +1,10 @@
+{
+  "expected_dashboard_count": null,
+  "billing_lag_hours": 72,
+  "metric_lookback_days": 7,
+  "environments": [],
+  "host_metadata": {},
+  "owners": {"monitors": {}, "dashboards": {}},
+  "incident_timestamps": [],
+  "trace_retention": {"days": null, "source": "", "verified_at": ""}
+}

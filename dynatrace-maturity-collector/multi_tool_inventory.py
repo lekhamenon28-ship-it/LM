@@ -435,10 +435,30 @@ def write_outputs(observations: list[Observation], diagnostics: dict[str, str], 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path("out"))
+    parser.add_argument("--tool", choices=("all", "datadog"), default="all", help="Use the detailed Datadog CSV/Excel collector, or the cross-tool inventory")
+    parser.add_argument("--config", type=Path, help="Datadog report settings and verified metadata inputs")
+    parser.add_argument("--single-file", action="store_true", help="Write the Datadog report as one Excel workbook")
     parser.add_argument("--fixture", type=Path, help="JSON fixture with observations and diagnostics")
     parser.add_argument("--credentials", type=Path, default=DEFAULT_FILE, help="JSON credentials file (default: credentials.json beside this script)")
     parser.add_argument("--usage-days", type=int, choices=range(1, 91), default=30, metavar="1..90", help="Dynatrace billing lookback in days (default: 30)")
     args = parser.parse_args()
+    if args.tool == "datadog":
+        if args.fixture:
+            parser.error("--tool datadog does not use the cross-tool fixture")
+        from datadog_maturity import Client, Collector, export
+        load_credentials(args.credentials)
+        from datadog_enrichment import load_config
+        try:
+            config = load_config(args.config)
+        except (ValueError, OSError) as exc:
+            parser.error(str(exc))
+        collector = Collector(Client(), args.usage_days, config)
+        collector.collect()
+        export(collector, args.output, args.credentials, single_file=args.single_file)
+        print(f"Wrote Datadog report to {args.output.resolve()}")
+        return 0
+    if args.config or args.single_file:
+        parser.error("--config and --single-file require --tool datadog")
     usage_rows, usage_diagnostics = [], {}
     pricing_catalog = collect_vendor_pricing(enabled=not bool(args.fixture))
     if args.fixture:

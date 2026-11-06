@@ -1,4 +1,66 @@
+# Separate vendor collectors
+
+Each tool has its own entry point and API client. Credentials are loaded only for the selected vendor.
+
+```bash
+python3 datadog_maturity.py --single-file --output datadog_complete_report.xlsx
+python3 dynatrace_maturity.py --output dynatrace_complete_report.xlsx
+```
+
+Both commands read `credentials.json` and write a separate workbook with all collected datasets and access/error coverage. Dynatrace defaults to a 30-day window; use `--days 1` for a shorter validation run. Platform credentials are separate from the Environment API token. Missing Platform access is reported explicitly.
+
+See [API_REFERENCE.md](API_REFERENCE.md) for API families, pagination, and remaining limitations. Legacy multi-tool entry points remain available below.
+
 # Multi-tool Observability Collector
+
+## Detailed Datadog maturity report (CSV and Excel)
+
+For a single complete workbook:
+
+```bash
+python3 datadog_maturity.py --single-file --output ./datadog_complete_report.xlsx
+```
+
+The workbook includes findings, methodology, API coverage and a remediation sheet.
+It embeds a lossless report snapshot, so the same workbook can be used as
+`--input-report` for subsequent refreshes without keeping a separate JSON file.
+Optional verified metadata/owner/retention/incident inputs use
+`datadog-report.json` (see `datadog-report.example.json`), or `--config FILE`.
+Dashboard-list presets, monthly custom metric names, fallback metric timestamp
+queries, indexed-span evidence and an unfiltered RUM probe are collected read-only.
+
+To refresh selected sources from a saved JSON report into one workbook:
+
+```bash
+python3 datadog_maturity.py --input-report ./datadog-out/datadog_maturity.json \
+  --refresh dashboard_memberships custom_metric_names metric_timestamp_checks \
+  indexed_span_services rum_diagnostics synthetic_results \
+  --single-file --output ./datadog_complete_report.xlsx
+```
+
+```bash
+python3 multi_tool_inventory.py --tool datadog --output ./datadog-out --usage-days 30
+# Equivalent standalone entry point:
+python3 datadog_maturity.py --output ./datadog-out --days 30
+# Retry only failed sources, keeping the original reporting window:
+python3 datadog_maturity.py --output ./datadog-out --refresh usage incidents
+```
+
+This produces `datadog_maturity.xlsx`, `datadog_maturity.json`, and separate CSVs
+for host inventory/details, alerts and transition history, application/catalog
+coverage, dashboards, metrics and metric counts, service relationships, trace
+status/retention/consumption, RUM applications/sessions/views/browsers/devices,
+Synthetic tests/results, incident timing, hourly usage, normalized billing drivers,
+and feature/API availability. Host CSVs use Datadog fields only. No third-party
+packages are required for Excel export.
+
+Read [Datadog methodology](DATADOG-METHODOLOGY.md) for windows, permissions,
+pagination, pricing units, MTTR/MTTD/MTTA definitions, and known API limitations.
+In particular, custom/cloned dashboard counts exclude preset integration
+dashboards, catalog registration is not proof of active tracing, and missing
+consumption or acknowledgement timestamps remain unknown. A successful process
+can still contain partial/unavailable datasets: inspect `feature_availability.csv`
+and per-row enrichment status. `--tool all` retains the original cross-tool output.
 
 ## One configuration file for all tools
 
@@ -28,6 +90,11 @@ Environment variables override file values. On Linux/macOS the file must have
 permissions `600`; the initializer sets this automatically. To use a different
 file, pass `--credentials /path/to/credentials.json` to the collector.
 Fixture runs do not require credentials.
+
+Each tool section also accepts its environment-variable names as JSON keys,
+such as `datadog.DD_API_KEY` and `datadog.DD_APP_KEY`. A nonempty standard field
+(`api_key` or `application_key`) takes precedence over its alias; actual
+environment variables take precedence over both.
 
 ## Cross-tool host inventory
 

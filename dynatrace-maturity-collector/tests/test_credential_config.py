@@ -11,6 +11,16 @@ from credential_config import load_credentials, initialize_credentials, read_cre
 
 
 class CredentialConfigTests(unittest.TestCase):
+    def test_environment_named_file_keys_are_loaded(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "credentials.json"
+            path.write_text(json.dumps({"datadog": {"api_key": "", "DD_API_KEY": "file-key", "DD_APP_KEY": "file-app"}}))
+            path.chmod(0o600)
+            with patch.dict(os.environ, {"DD_APP_KEY": "env-app"}, clear=True):
+                load_credentials(path)
+                self.assertEqual(os.environ["DD_API_KEY"], "file-key")
+                self.assertEqual(os.environ["DD_APP_KEY"], "env-app")
+
     def test_file_loads_each_tool_and_environment_wins(self):
         data = {
             "dynatrace": {"environment_url": "https://dt.example", "api_token": "dt-file"},

@@ -17,7 +17,7 @@ FIELDS = {
 }
 
 
-def read_credentials(path: Path = DEFAULT_FILE) -> dict:
+def read_credentials(path: Path = DEFAULT_FILE, tool: str | None = None) -> dict:
     if not path.exists():
         raise RuntimeError(f"Credentials file not found: {path}. Copy credentials.example.json to credentials.json and set permissions to 600.")
     if os.name != "nt" and path.stat().st_mode & 0o077:
@@ -28,22 +28,28 @@ def read_credentials(path: Path = DEFAULT_FILE) -> dict:
         raise RuntimeError(f"Could not read credentials file {path}: {exc}") from exc
     if not isinstance(data, dict):
         raise RuntimeError("Credentials file must contain a JSON object")
-    for tool, fields in FIELDS.items():
-        section = data.get(tool, {})
+    if tool is not None and tool not in FIELDS:
+        raise ValueError('Unknown credential tool: '+tool)
+    selected = FIELDS.items() if tool is None else [(tool,FIELDS[tool])]
+    for name, fields in selected:
+        section = data.get(name, {})
         if not isinstance(section, dict):
-            raise RuntimeError(f"Credentials section {tool} must be a JSON object")
+            raise RuntimeError(f"Credentials section {name} must be a JSON object")
         for field, env_name in fields.items():
-            value = section.get(field, "")
-            if not isinstance(value, str):
-                raise RuntimeError(f"Credentials field {tool}.{field} must be a string")
+            for key in (field, env_name):
+                value = section.get(key, "")
+                if not isinstance(value, str):
+                    raise RuntimeError(f"Credentials field {name}.{key} must be a string")
     return data
 
 
-def load_credentials(path: Path = DEFAULT_FILE) -> None:
-    data = read_credentials(path)
-    for tool, fields in FIELDS.items():
+def load_credentials(path: Path = DEFAULT_FILE, tool: str | None = None) -> None:
+    data = read_credentials(path, tool)
+    selected = FIELDS.items() if tool is None else [(tool,FIELDS[tool])]
+    for tool, fields in selected:
         for field, env_name in fields.items():
-            value = data.get(tool, {}).get(field, "")
+            section = data.get(tool, {})
+            value = section.get(field, "").strip() or section.get(env_name, "")
             if value.strip() and not os.environ.get(env_name):
                 os.environ[env_name] = value.strip()
 

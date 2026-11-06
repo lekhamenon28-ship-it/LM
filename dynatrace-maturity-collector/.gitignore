@@ -4,3 +4,7 @@ __pycache__/
 out/
 demo-multi-out/
 multi-out/
+runs/
+datadog-out/
+*_complete_report.xlsx
+datadog-report.json
